@@ -34,4 +34,4 @@ Pushes to `main` build a container image and deploy to the test cluster; the pro
 deploy is triggered manually (`workflow_dispatch`). Both rely on NIVA's
 workload-identity secrets and self-hosted runners being configured for the repo.
 
-Contact: griffin.hill@niva.no
+Questions: please open an issue on this repository.
