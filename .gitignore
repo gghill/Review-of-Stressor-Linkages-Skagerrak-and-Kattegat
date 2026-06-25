@@ -1,0 +1,38 @@
+# History files
+.Rhistory
+.Rapp.history
+# Session data files
+.RData
+.Ruserdata
+# Example code in package build process
+*-Ex.R
+# Output files from R CMD build / check
+/*.tar.gz
+/*.Rcheck/
+# RStudio files
+.Rproj.user/
+*.Rproj
+# Produced vignettes
+vignettes/*.html
+vignettes/*.pdf
+# knitr / R Markdown caches
+*_cache/
+/cache/
+*.utf8.md
+*.knit.md
+
+# Secrets / credentials (never commit)
+.Renviron
+.httr-oauth
+*.pem
+*.key
+*token*
+*secret*
+
+# shinyapps.io / Posit Connect deployment state
+rsconnect/
+
+# OS / editor cruft
+.DS_Store
+Thumbs.db
+notes.txt

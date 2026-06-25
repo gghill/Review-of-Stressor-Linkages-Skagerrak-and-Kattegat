@@ -1,0 +1,8 @@
+version: '3'
+
+services:
+  sk-review:
+    container_name: sk-review
+    build: .
+    ports:
+      - 3838:3838

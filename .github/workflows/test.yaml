@@ -1,0 +1,105 @@
+name: Build & Deploy (test)
+on:
+  push:
+    branches:
+      - 'main'
+    paths:
+    - 'app/**'
+    - '.github/**'
+    - 'deployment/**'
+    - 'dependencies.R'
+    - 'Dockerfile'
+
+env:
+  NAMESPACE: standalone
+  PROJECT: nivatest-1
+  ENVIRONMENT: test
+  ZONE: europe-west1
+  IMAGE_NAME: sk-review
+  WORKDIR: ./
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      - id: "auth"
+        name: "Authenticate to Google Cloud"
+        uses: "google-github-actions/auth@v1"
+        with:
+          token_format: access_token
+          workload_identity_provider: "${{secrets.WORKLOAD_IDENTITY_PROVIDER}}"
+          service_account: "${{secrets.WORKLOAD_IDENTITY_SA}}"
+      - name: Login to Artifact Registry
+        uses: "docker/login-action@v2"
+        with:
+          registry: "europe-west1-docker.pkg.dev"
+          username: "oauth2accesstoken"
+          password: "${{ steps.auth.outputs.access_token }}"
+      - name: Setup kustomize
+        uses: imranismail/setup-kustomize@v2
+      - name: Build image
+        uses: ./.github/actions/build
+        with:
+          image_name: ${{ env.IMAGE_NAME }}
+          context: ${{ env.WORKDIR }}
+          kustomize_dir: ${{ env.WORKDIR }}/deployment/base
+      # The build action uses kustomize to store the new image tag in the base
+      # if a new image is built. This is then committed by the action.
+      - name: Bump image
+        uses: stefanzweifel/git-auto-commit-action@v4
+        with:
+          commit_message: Bump image tags
+          file_pattern: ${{ env.WORKDIR }}/deployment/base/kustomization.yaml
+          skip_checkout: true
+  deploy:
+
+    # We need access to the kubernetes cluster when deploying, so we
+    # are using a runner that is deployed on the cluster.
+    runs-on: ["nivatest-1"]
+
+    needs:
+      - build
+
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          ref: main
+
+      - id: "auth"
+        name: "Authenticate to Google Cloud"
+        uses: "google-github-actions/auth@v1"
+        with:
+          token_format: access_token
+          workload_identity_provider: "${{ secrets.WORKLOAD_IDENTITY_PROVIDER }}"
+          service_account: "${{ secrets.WORKLOAD_IDENTITY_SA }}"
+
+      - id: 'get-credentials'
+        uses: 'google-github-actions/get-gke-credentials@v1'
+        with:
+          cluster_name: ${{ env.PROJECT }}-cluster
+          location: ${{ env.ZONE }}
+          project_id: ${{ env.PROJECT }}
+          use_internal_ip: True
+
+      - name: Deploy
+        run: |-
+          kubectl config set-context --current --namespace=${{ env.NAMESPACE }}
+          kubectl apply -k ${{ env.WORKDIR }}/deployment/${{ env.ENVIRONMENT }}
+          ATTEMPTS=0
+          ROLLOUT_STATUS_CMD="kubectl rollout status deployment/sk-review"
+          until $ROLLOUT_STATUS_CMD || [ $ATTEMPTS -eq 10 ]; do
+            $ROLLOUT_STATUS_CMD
+            ATTEMPTS=$((attempts + 1))
+            sleep 60
+          done

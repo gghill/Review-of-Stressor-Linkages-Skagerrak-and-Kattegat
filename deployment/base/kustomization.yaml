@@ -1,0 +1,9 @@
+kind: Kustomization
+apiVersion: kustomize.config.k8s.io/v1beta1
+namespace: standalone
+resources:
+- ./deployment.yaml
+images:
+- name: '*sk-review*'
+  newName: europe-west1-docker.pkg.dev/niva-cd/images/sk-review
+  newTag: latest
